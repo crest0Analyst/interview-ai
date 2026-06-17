@@ -277,12 +277,17 @@
 
   .field-input, .field-textarea {
     background: var(--bg); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text);
-    font-family: inherit; font-size: 14px; padding: 10px 12px;
-    -webkit-appearance: none; resize: none;
+    border-radius: 10px; color: var(--text);
+    font-family: inherit; font-size: 16px; padding: 14px;
+    -webkit-appearance: none; resize: none; width: 100%;
   }
   .field-input:focus, .field-textarea:focus { outline: none; border-color: var(--accent2); }
-  .field-textarea { min-height: 72px; line-height: 1.55; }
+  .field-textarea { min-height: 80px; line-height: 1.6; }
+  #apiKeyInput {
+    font-size: 16px; padding: 18px 14px;
+    border: 2px solid var(--accent);
+    border-radius: 12px; letter-spacing: 0.02em;
+  }
 
   .btn-save-settings {
     background: var(--accent2); color: #fff; border: none;
