@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面接AI">
+<meta name="theme-color" content="#0f1117">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>面接サポートAI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1f2436;
+    --border: #2a3048;
+    --accent: #4f8ef7;
+    --accent2: #7c6af7;
+    --success: #3ecf8e;
+    --danger: #f76f6f;
+    --text: #e8eaf0;
+    --text2: #8b92a8;
+    --text3: #555d75;
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    /* iPhone safe area */
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  /* ===== TABS (iPhone向けボトムナビ) ===== */
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding-bottom: max(var(--safe-bottom), 8px);
+    flex-shrink: 0;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px 4px 6px;
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    font-size: 10px;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.15s;
+  }
+  .tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active .tab-icon { filter: drop-shadow(0 0 4px var(--accent)); }
+
+  /* ===== HEADER ===== */
+  header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  header h1 { font-size: 14px; font-weight: 600; flex: 1; }
+
+  .rec-indicator {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--text3);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text3);
+  }
+  .status-dot.active {
+    background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .status-dot.ready { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ===== PAGES ===== */
+  .app-body { flex: 1; overflow: hidden; position: relative; }
+
+  .page {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .page.active { display: flex; }
+
+  /* ===== TRANSCRIPT PAGE ===== */
+  .transcript-area {
+    flex: 1; overflow-y: auto;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+
+  .utterance {
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14px; line-height: 1.6;
+    animation: fadeIn 0.2s ease;
+  }
+  .utterance.interviewer { background: var(--surface2); border-left: 3px solid var(--accent); }
+  .utterance.candidate { background: rgba(62,207,142,0.07); border-left: 3px solid var(--success); }
+  .utterance .spk {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .utterance.interviewer .spk { color: var(--accent); }
+  .utterance.candidate .spk { color: var(--success); }
+
+  .interim-text {
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14px; line-height: 1.6;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--text3);
+    color: var(--text3); font-style: italic;
+  }
+
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; color: var(--text3); text-align: center; padding: 32px;
+  }
+  .empty-state .ei { font-size: 36px; opacity: 0.35; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+
+  /* Controls */
+  .controls {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column; gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .speaker-toggle { display: flex; gap: 6px; }
+  .speaker-btn {
+    flex: 1; padding: 10px 6px; border-radius: 9px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text2); font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+    -webkit-appearance: none;
+  }
+  .speaker-btn.active-interviewer { background: rgba(79,142,247,0.15); border-color: rgba(79,142,247,0.4); color: var(--accent); }
+  .speaker-btn.active-candidate { background: rgba(62,207,142,0.12); border-color: rgba(62,207,142,0.35); color: var(--success); }
+
+  .btn-row { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: 10px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+    -webkit-appearance: none;
+  }
+  .btn-start { background: var(--accent); color: #fff; }
+  .btn-start:active { background: #3d7ef5; }
+  .btn-start:disabled { opacity: 0.4; }
+  .btn-stop { background: rgba(247,111,111,0.15); color: var(--danger); border: 1px solid rgba(247,111,111,0.3); }
+  .btn-stop:active { background: rgba(247,111,111,0.25); }
+  .btn-stop:disabled { opacity: 0.3; }
+  .btn-clear {
+    flex: 0 0 auto; padding: 13px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text3); font-size: 13px; cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ===== ADVICE PAGE ===== */
+  .advice-area {
+    flex: 1; overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .advice-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; animation: fadeIn 0.3s ease;
+  }
+  .advice-card-header {
+    padding: 8px 12px; display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(124,106,247,0.06);
+  }
+  .advice-trigger { font-size: 10px; color: var(--text3); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .advice-time { font-size: 10px; color: var(--text3); white-space: nowrap; }
+  .advice-body { padding: 12px; font-size: 13px; line-height: 1.75; }
+  .advice-body p { margin-bottom: 7px; }
+  .advice-body p:last-child { margin-bottom: 0; }
+
+  .loading-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 12px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text2); font-size: 13px;
+  }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--accent2); border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: rgba(247,111,111,0.08); border: 1px solid rgba(247,111,111,0.25);
+    border-radius: 10px; padding: 12px; font-size: 12px;
+    color: var(--danger); line-height: 1.6;
+  }
+
+  .badge-count {
+    background: var(--danger); color: #fff;
+    border-radius: 10px; font-size: 10px; font-weight: 700;
+    padding: 1px 5px; min-width: 16px; text-align: center;
+    position: absolute; top: 6px; right: calc(50% - 18px);
+  }
+  .tab-btn { position: relative; }
+
+  /* ===== SETTINGS PAGE ===== */
+  .settings-page {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-section {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .settings-section-title {
+    padding: 10px 14px; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--text2); border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .settings-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-label { font-size: 11px; font-weight: 600; color: var(--text2); letter-spacing: 0.04em; }
+  .field-desc { font-size: 11px; color: var(--text3); }
+
+  .field-input, .field-textarea {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: inherit; font-size: 14px; padding: 10px 12px;
+    -webkit-appearance: none; resize: none;
+  }
+  .field-input:focus, .field-textarea:focus { outline: none; border-color: var(--accent2); }
+  .field-textarea { min-height: 72px; line-height: 1.55; }
+
+  .btn-save-settings {
+    background: var(--accent2); color: #fff; border: none;
+    border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: inherit; width: 100%;
+    -webkit-appearance: none;
+  }
+  .btn-save-settings:active { background: #6b5ce7; }
+
+  .save-success {
+    text-align: center; font-size: 12px; color: var(--success);
+    display: none; padding: 4px;
+  }
+  .save-success.show { display: block; }
+
+  .profile-set-indicator {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--success);
+    background: rgba(62,207,142,0.1); border: 1px solid rgba(62,207,142,0.25);
+    border-radius: 20px; padding: 3px 9px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <h1>面接サポートAI</h1>
+  <div class="rec-indicator">
+    <div class="status-dot" id="recDot"></div>
+    <span id="recStatus">待機中</span>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <!-- PAGE: Transcript -->
+  <div class="page active" id="pageTranscript">
+    <div class="transcript-area" id="transcriptArea">
+      <div class="empty-state" id="transcriptEmpty">
+        <div class="ei">🎤</div>
+        <p>話者を選んで「録音開始」を押すと<br>音声が文字起こしされます</p>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="speaker-toggle">
+        <button class="speaker-btn active-interviewer" id="btnInterviewer" onclick="setSpeaker('interviewer')">👔 面接官</button>
+        <button class="speaker-btn" id="btnCandidate" onclick="setSpeaker('candidate')">🙋 応募者</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-start" id="btnStart" onclick="startRecording()">▶ 録音開始</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopRecording()" disabled>■ 停止</button>
+        <button class="btn-clear" onclick="clearAll()">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: Advice -->
+  <div class="page" id="pageAdvice">
+    <div class="advice-area" id="adviceArea">
+      <div class="empty-state" id="adviceEmpty">
+        <div class="ei">✦</div>
+        <p>会話が入力されると<br>AIアドバイスがここに届きます</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: Settings -->
+  <div class="page" id="pageSettings">
+    <div class="settings-page">
+      <div class="settings-section">
+        <div class="settings-section-title">🔑 OpenAI APIキー</div>
+        <div class="settings-body">
+          <div class="field-group">
+            <div class="field-label">APIキー</div>
+            <div class="field-desc">入力内容はこのデバイス内のみで使用されます</div>
+            <input class="field-input" id="apiKeyInput" type="password" placeholder="sk-..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">👤 あなたのプロフィール</div>
+        <div class="settings-body">
+          <div class="field-group">
+            <div class="field-label">氏名・応募職種</div>
+            <input class="field-input" id="pName" placeholder="例：山田太郎 / エンジニア" />
+          </div>
+          <div class="field-group">
+            <div class="field-label">職務経歴</div>
+            <textarea class="field-textarea" id="pCareer" placeholder="例：2020〜現在：株式会社〇〇&#10;- フロントエンド開発&#10;- チームリード経験あり"></textarea>
+          </div>
+          <div class="field-group">
+            <div class="field-label">得意分野・スキル</div>
+            <textarea class="field-textarea" id="pSkills" placeholder="例：React, TypeScript, AWS&#10;強み：UI設計、チーム推進"></textarea>
+          </div>
+          <div class="field-group">
+            <div class="field-label">転職理由・志望動機</div>
+            <textarea class="field-textarea" id="pMotivation" placeholder="例：より事業に深く関わりたいと考え転職を決意。"></textarea>
+          </div>
+          <div class="field-group">
+            <div class="field-label">アピールエピソード（任意）</div>
+            <textarea class="field-textarea" id="pEpisode" placeholder="例：ダッシュボード機能の開発でユーザー満足度30%改善。"></textarea>
+          </div>
+          <div class="field-group">
+            <div class="field-label">応募先企業・ポジション（任意）</div>
+            <textarea class="field-textarea" id="pTarget" style="min-height:54px" placeholder="例：株式会社〇〇 プロダクトエンジニア"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-save-settings" onclick="saveSettings()">保存する</button>
+      <div class="save-success" id="saveSuccess">✓ 保存しました</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab0" onclick="switchTab(0)">
+    <span class="tab-icon">🎙</span>
+    文字起こし
+  </button>
+  <button class="tab-btn" id="tab1" onclick="switchTab(1)">
+    <span class="tab-icon">✦</span>
+    アドバイス
+    <span class="badge-count" id="adviceBadge" style="display:none">0</span>
+  </button>
+  <button class="tab-btn" id="tab2" onclick="switchTab(2)">
+    <span class="tab-icon">⚙️</span>
+    設定
+  </button>
+</div>
+
+<script>
+// ===== State =====
+let recognition = null;
+let currentSpeaker = 'interviewer';
+let transcript = [];
+let isRecording = false;
+let pendingAnalysis = false;
+let lastAnalyzedIndex = 0;
+let interimEl = null;
+let analysisTimer = null;
+let userProfile = null;
+let newAdviceCount = 0;
+let currentTab = 0;
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// ===== Service Worker =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ===== Tab Navigation =====
+function switchTab(idx) {
+  currentTab = idx;
+  ['pageTranscript','pageAdvice','pageSettings'].forEach((id, i) => {
+    document.getElementById(id).classList.toggle('active', i === idx);
+  });
+  [0,1,2].forEach(i => {
+    document.getElementById('tab'+i).classList.toggle('active', i === idx);
+  });
+  if (idx === 1) {
+    newAdviceCount = 0;
+    document.getElementById('adviceBadge').style.display = 'none';
+  }
+}
+
+// ===== Speaker =====
+function setSpeaker(s) {
+  currentSpeaker = s;
+  document.getElementById('btnInterviewer').className = 'speaker-btn' + (s==='interviewer'?' active-interviewer':'');
+  document.getElementById('btnCandidate').className = 'speaker-btn' + (s==='candidate'?' active-candidate':'');
+}
+
+// ===== Recording =====
+function startRecording() {
+  if (!SpeechRecognition) {
+    alert('このブラウザは音声認識に対応していません。SafariまたはChromeをお使いください。');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'ja-JP';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('recDot').className = 'status-dot active';
+    document.getElementById('recStatus').textContent = '録音中';
+    const el = document.getElementById('transcriptEmpty');
+    if (el) el.style.display = 'none';
+  };
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const text = e.results[i][0].transcript.trim();
+        if (text) addUtterance(text);
+        if (interimEl) { interimEl.remove(); interimEl = null; }
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    if (interim) {
+      if (!interimEl) {
+        interimEl = document.createElement('div');
+        interimEl.className = 'interim-text';
+        document.getElementById('transcriptArea').appendChild(interimEl);
+      }
+      interimEl.textContent = interim + '…';
+      scrollEl('transcriptArea');
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== 'no-speech') showError('音声認識エラー: ' + e.error);
+  };
+
+  recognition.onend = () => {
+    if (isRecording) {
+      setTimeout(() => { if (isRecording && recognition) recognition.start(); }, 300);
+    }
+  };
+
+  recognition.start();
+}
+
+function stopRecording() {
+  isRecording = false;
+  if (recognition) { recognition.stop(); recognition = null; }
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+  document.getElementById('recDot').className = 'status-dot';
+  document.getElementById('recStatus').textContent = '停止中';
+  if (interimEl) { interimEl.remove(); interimEl = null; }
+}
+
+function addUtterance(text) {
+  transcript.push({ speaker: currentSpeaker, text, time: new Date() });
+  const area = document.getElementById('transcriptArea');
+  const el = document.createElement('div');
+  el.className = 'utterance ' + currentSpeaker;
+  el.innerHTML = '<div class="spk">' + (currentSpeaker==='interviewer'?'👔 面接官':'🙋 応募者') + '</div>' + escHtml(text);
+  area.appendChild(el);
+  scrollEl('transcriptArea');
+  clearTimeout(analysisTimer);
+  analysisTimer = setTimeout(requestAdvice, 2500);
+}
+
+function scrollEl(id) {
+  const el = document.getElementById(id);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ===== AI Advice =====
+async function requestAdvice() {
+  if (pendingAnalysis) return;
+  const newEntries = transcript.slice(lastAnalyzedIndex);
+  if (!newEntries.length) return;
+
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) { showError('設定タブでAPIキーを入力してください。'); return; }
+
+  pendingAnalysis = true;
+  lastAnalyzedIndex = transcript.length;
+
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'loading-card';
+  loadingEl.innerHTML = '<div class="spinner"></div><span>アドバイスを生成中…</span>';
+  const adviceArea = document.getElementById('adviceArea');
+  const emptyEl = document.getElementById('adviceEmpty');
+  if (emptyEl) emptyEl.style.display = 'none';
+  adviceArea.appendChild(loadingEl);
+  scrollEl('adviceArea');
+
+  const contextLog = transcript.map(e => '[' + (e.speaker==='interviewer'?'面接官':'応募者') + ']: ' + e.text).join('\n');
+  const recent = newEntries.map(e => '[' + (e.speaker==='interviewer'?'面接官':'応募者') + ']: ' + e.text).join('\n');
+  const profileBlock = buildProfileBlock();
+
+  const prompt = `あなたは採用面接の専門コーチです。
+
+${profileBlock ? profileBlock + '\n\n' : ''}【会話全体のコンテキスト】
+${contextLog}
+
+【今回新たに追加された発言】
+${recent}
+
+上記の新しい発言に対して、応募者へのリアルタイムアドバイスを日本語で簡潔に提供してください。
+${profileBlock ? 'プロフィール情報を踏まえ、応募者の経歴・強みを活かした具体的なアドバイスをしてください。' : ''}
+以下の観点で2〜3点、具体的に：
+- 発言の評価（良かった点・改善点）
+- 次の発言で意識すべきポイント
+- 面接官の発言なら、応募者はどう答えるべきか
+
+短く、実践的に。`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model: 'gpt-4o', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const adviceText = data.choices?.[0]?.message?.content || 'アドバイスを取得できませんでした。';
+
+    loadingEl.remove();
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    const card = document.createElement('div');
+    card.className = 'advice-card';
+    card.innerHTML = '<div class="advice-card-header"><span style="color:var(--accent2)">✦</span><span class="advice-trigger">' + escHtml(recent.slice(0,50)) + (recent.length>50?'…':'') + '</span><span class="advice-time">' + timeStr + '</span></div><div class="advice-body">' + formatAdvice(adviceText) + '</div>';
+    adviceArea.appendChild(card);
+    scrollEl('adviceArea');
+
+    // Badge notification if not on advice tab
+    if (currentTab !== 1) {
+      newAdviceCount++;
+      const badge = document.getElementById('adviceBadge');
+      badge.textContent = newAdviceCount;
+      badge.style.display = 'inline-block';
+    }
+  } catch (err) {
+    loadingEl.remove();
+    showError('APIエラー: ' + err.message);
+  } finally {
+    pendingAnalysis = false;
+  }
+}
+
+// ===== Profile =====
+function buildProfileBlock() {
+  if (!userProfile) return '';
+  const p = userProfile;
+  let lines = ['【応募者のプロフィール情報】'];
+  if (p.name) lines.push('氏名・応募職種：' + p.name);
+  if (p.career) lines.push('職務経歴：\n' + p.career);
+  if (p.skills) lines.push('得意分野・スキル：\n' + p.skills);
+  if (p.motivation) lines.push('転職理由・志望動機：' + p.motivation);
+  if (p.episode) lines.push('アピールエピソード：' + p.episode);
+  if (p.target) lines.push('応募先：' + p.target);
+  return lines.join('\n\n');
+}
+
+// ===== Settings =====
+function saveSettings() {
+  const name = document.getElementById('pName').value.trim();
+  const career = document.getElementById('pCareer').value.trim();
+  const skills = document.getElementById('pSkills').value.trim();
+  const motivation = document.getElementById('pMotivation').value.trim();
+  const episode = document.getElementById('pEpisode').value.trim();
+  const target = document.getElementById('pTarget').value.trim();
+
+  if (career || skills || name) {
+    userProfile = { name, career, skills, motivation, episode, target };
+  }
+
+  // Save API key to sessionStorage for convenience
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) sessionStorage.setItem('oai_key', key);
+
+  const el = document.getElementById('saveSuccess');
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// Restore API key from session
+window.addEventListener('load', () => {
+  const k = sessionStorage.getItem('oai_key');
+  if (k) document.getElementById('apiKeyInput').value = k;
+});
+
+// ===== Helpers =====
+function formatAdvice(text) {
+  return text.split('\n').filter(l=>l.trim()).map(l=>'<p>'+escHtml(l)+'</p>').join('');
+}
+
+function showError(msg) {
+  const area = document.getElementById('adviceArea');
+  const el = document.createElement('div');
+  el.className = 'error-msg';
+  el.textContent = msg;
+  area.appendChild(el);
+  scrollEl('adviceArea');
+  if (currentTab !== 1) {
+    newAdviceCount++;
+    const badge = document.getElementById('adviceBadge');
+    badge.textContent = '!';
+    badge.style.display = 'inline-block';
+  }
+}
+
+function clearAll() {
+  transcript = []; lastAnalyzedIndex = 0;
+  document.getElementById('transcriptArea').innerHTML = '<div class="empty-state" id="transcriptEmpty"><div class="ei">🎤</div><p>話者を選んで「録音開始」を押すと<br>音声が文字起こしされます</p></div>';
+  document.getElementById('adviceArea').innerHTML = '<div class="empty-state" id="adviceEmpty"><div class="ei">✦</div><p>会話が入力されると<br>AIアドバイスがここに届きます</p></div>';
+  newAdviceCount = 0;
+  document.getElementById('adviceBadge').style.display = 'none';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
