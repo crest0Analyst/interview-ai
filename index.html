@@ -364,7 +364,7 @@
           <div class="field-group">
             <div class="field-label">APIキー</div>
             <div class="field-desc">入力内容はこのデバイス内のみで使用されます</div>
-            <input class="field-input" id="apiKeyInput" type="password" placeholder="sk-..." autocomplete="off" />
+            <textarea class="field-textarea" id="apiKeyInput" rows="3" placeholder="sk-... を長押しして貼り付け" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="min-height:90px;font-size:15px;letter-spacing:0.02em;border:2px solid var(--accent);"></textarea>
           </div>
         </div>
       </div>
@@ -653,7 +653,7 @@ function saveSettings() {
   }
 
   // Save API key to sessionStorage for convenience
-  const key = document.getElementById('apiKeyInput').value.trim();
+  const key = document.getElementById('apiKeyInput').value.trim().replace(/\s+/g, '');
   if (key) sessionStorage.setItem('oai_key', key);
 
   const el = document.getElementById('saveSuccess');
